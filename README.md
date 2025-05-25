@@ -40,7 +40,7 @@ The objectives of this analysis are to:
 
 ## Usage
 
-1. Open the Jupyter notebook `covid_analysis.ipynb` to run the analysis from start to finish.
+1. Open the Jupyter notebook `covid_analysis.ipynb` to run the analysis from start to finish. The notebook now applies a consistent Seaborn style to all plots and normalizes metrics by population for clearer comparisons. An optional Plotly visualization at the end allows interactive exploration of deaths per 100k people by state.
 
 ## Preprocessing
 
