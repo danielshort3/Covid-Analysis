@@ -1,8 +1,8 @@
-# Can current hospital reports warn of an ICU capacity breach?
+# Can state hospital reports predict high ICU occupancy a week ahead?
 
-This project ranks state-level hospital reports by the likelihood that **adult ICU occupancy will reach 90% on at least one of the next seven days**. The reproducible case study uses a historical U.S. Department of Health and Human Services snapshot and compares an XGBoost classifier with the simplest operational benchmark, today's occupancy.
+This retrospective study uses state-level hospital reports to predict whether **adult ICU occupancy will reach 90% on at least one of the next seven days**. It compares an XGBoost classifier with a baseline that carries the latest reported occupancy forward. The historical HHS snapshot records observation dates. When each report first became available is unknown.
 
-**Held-out result.** Across 18,630 forecast dates and jurisdictions, the model achieved 0.391 average precision against 0.372 for occupancy persistence. At a fixed 0.5 probability threshold, the model detected 52 of 376 positive forecast origins and produced six false alerts. Persistence detected 78 and produced 33 false alerts. This trade-off matters more for alert design than an isolated accuracy figure.
+Across 18,630 held-out jurisdiction-date forecasts, XGBoost achieved **0.391 average precision**, compared with **0.372** for occupancy persistence. At a fixed alert threshold of 0.5, XGBoost caught **52 of 376 positive forecasts (13.8% recall)** with six false alerts. Persistence caught **78 of 376 (20.7% recall)** with 33 false alerts. Consecutive forecasts can describe the same occupancy episode.
 
 [Read the executed analysis](covid_analysis.ipynb) · [Inspect the model and evaluation](icu_forecast.py) · [Review the model card](docs/model-card.md)
 
@@ -40,3 +40,7 @@ The snapshot contains 54 states and reporting jurisdictions. Hospital participat
 ![Seven model features ranked by mean absolute contribution. Current adult ICU occupancy ranks first, followed by its one-day lag and trailing averages.](SHAP_features.png)
 
 The original project established the XGBoost ICU forecast, cutoff date, ratio features, explanatory plot and prediction export. This revision repairs state-day alignment and outcome windows, adds a separate model-selection period and benchmarks, and regenerates the historical outputs. The upstream HHS dataset is listed as a U.S. government work. [Snapshot provenance and field definitions](data/README.md) · [HHS catalog](https://catalog.data.gov/dataset/covid-19-reported-patient-impact-and-hospital-capacity-by-state-timeseries-raw)
+
+## Code and data rights
+
+The MIT license covers Daniel Short’s original Python analysis and test code and the code cells in the notebook. HHS publishes the underlying state-level data under its own government-work designation. The prediction CSV, contribution figure and rendered notebook outputs are derived from that dataset. Python packages retain their respective licenses. [Code license](LICENSE) · [Dataset terms and derived outputs](data/README.md)

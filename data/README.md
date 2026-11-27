@@ -12,3 +12,7 @@ The input arrived in Git at commit `cbb8934`. The SHA-256 of the canonical Git b
 | `*_coverage`, `*_numerator`, `*_denominator` | Reporting-hospital counts and underlying counts for the respective ratio. Coverage counts use hospitals as the unit. |
 
 Negative and non-finite numeric inputs are treated as missing. The snapshot has 60 nonmissing adult ICU occupancy values above 1. The analysis retains those raw reports, which qualify as breaches under the specified threshold. Reporting anomalies and actual capacity pressure cannot be distinguished from these ratios alone. Changes in hospital participation, historical revisions and reporting delays limit interpretation.
+
+## Attribution and derived files
+
+The HHS catalog lists the dataset as public and points to the U.S. government works policy. The historical raw CSV retains that upstream attribution. This project generates the jurisdiction-date predictions in `../icu_breach_probabilities.csv`, the feature-contribution plot in `../SHAP_features.png` and the notebook outputs from the retained aggregate snapshot. The separately scoped MIT license covers the project’s original code. [HHS dataset rights](https://catalog.data.gov/dataset/covid-19-reported-patient-impact-and-hospital-capacity-by-state-timeseries-raw) · [U.S. government works policy](https://www.usa.gov/government-works) · [Code license](../LICENSE)
