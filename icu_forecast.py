@@ -32,7 +32,7 @@ def read_snapshot(path=CSV_PATH):
 
 
 def build_panel(raw):
-    """Return features available by the report date and complete next-week labels."""
+    """Build features indexed by observation date and labels for complete future weeks."""
     required = {"state", "date", *RATIOS}
     missing = sorted(required - set(raw.columns))
     if missing:
