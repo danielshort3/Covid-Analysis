@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.vs/
+*.nbconvert.ipynb
+results/
+ci-output/
