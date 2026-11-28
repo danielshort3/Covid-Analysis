@@ -108,3 +108,31 @@ class EvaluationTests(unittest.TestCase):
         result = benchmark(x, x, np.zeros(2))
         self.assertTrue(result["ROC AUC"].isna().all())
         self.assertTrue(result["Average precision"].isna().all())
+
+    def test_one_probability_per_origin_is_positional_for_scoring_and_export(self):
+        sample = pd.DataFrame({
+            TARGET: [0, 1, 1], OCCUPANCY: [0.9, 0.7, 0.95],
+            "state": ["AA", "AA", "AA"], "date": pd.date_range("2022-07-01", periods=3),
+        }, index=[8, 6, 4])
+        values = np.array([0.1, 0.6, 0.8])
+        expected = benchmark(sample, sample, values)
+        self.assertEqual(expected.loc["XGBoost", ["True alerts", "False alerts", "Misses"]].tolist(), [2, 0, 0])
+        for scores in [values, values[:, None], values.tolist(), pd.Series(values, index=[4, 6, 8])]:
+            with self.subTest(form=type(scores).__name__, shape=np.shape(scores)):
+                pd.testing.assert_frame_equal(benchmark(sample, sample, scores), expected)
+                self.assertEqual(prediction_frame(sample, scores)["prob_breach_7d"].tolist(), values.tolist())
+
+    def test_rejects_misaligned_shapes_and_invalid_probabilities(self):
+        sample = pd.DataFrame({
+            TARGET: [0, 1, 1], OCCUPANCY: [0.9, 0.7, 0.95],
+            "state": ["AA"] * 3, "date": pd.date_range("2022-07-01", periods=3),
+        })
+        invalid = [0.5, [0.2, 0.3], np.zeros((1, 3)), np.zeros((3, 2)), np.zeros((3, 1, 1)),
+                   [0.1, np.nan, 0.5], [0, np.inf, 1], [-0.01, 0.5, 1], [0, 0.5, 1.01],
+                   ["0.1", "0.6", "0.8"], [0.1 + 1j, 0.6, 0.8]]
+        for values in invalid:
+            with self.subTest(values=values):
+                with self.assertRaisesRegex(ValueError, "(?i)probabilit"):
+                    benchmark(sample, sample, values)
+                with self.assertRaisesRegex(ValueError, "(?i)probabilit"):
+                    prediction_frame(sample, values)

@@ -2,6 +2,7 @@
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+from shutil import copy2, rmtree
 
 import numpy as np
 import pandas as pd
@@ -120,9 +121,23 @@ def fit_forecast(train, validation, max_trees=1200):
     return Forecast(preprocessing, model)
 
 
+def _probability_vector(probabilities, origins):
+    """Return one finite probability per origin, preserving positional order."""
+    values = np.asarray(probabilities)
+    if values.shape == (origins, 1):
+        values = values[:, 0]
+    if values.shape != (origins,):
+        raise ValueError("Expected one probability per forecast origin")
+    if (values.dtype.kind not in "buif" or not np.isfinite(values).all()
+            or np.any(values < 0) or np.any(values > 1)):
+        raise ValueError("Probabilities must be finite numbers between 0 and 1")
+    return values
+
+
 def benchmark(train, test, probabilities):
     """Compare ranking and alert behavior on the same eligible forecast origins."""
     y = test[TARGET].astype(int).to_numpy()
+    probabilities = _probability_vector(probabilities, len(y))
     utilization = test[OCCUPANCY].to_numpy()
     prevalence = float(train[TARGET].mean())
     predictions = [
@@ -190,23 +205,80 @@ def plot_contributions(importance):
 
 def prediction_frame(test, probabilities):
     out = test[["state", "date", OCCUPANCY]].copy()
-    out["prob_breach_7d"] = probabilities
+    out["prob_breach_7d"] = _probability_vector(probabilities, len(test))
     return out.sort_values(["date", "state"])
 
 
-def main():
+def _output_paths(input_csv, output_dir):
+    paths = (output_dir / "icu_breach_probabilities.csv", output_dir / "SHAP_features.png")
+    existing = [input_csv]
+    for path in paths:
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise ValueError(f"Output must be a regular file or a new path: {path}")
+        if path.exists():
+            if any(path.samefile(other) for other in existing if other.exists()):
+                raise ValueError("The input CSV and both outputs must refer to distinct files")
+            existing.append(path)
+    return paths
+
+
+def write_results(input_csv, output_dir, predictions, importance):
+    """Stage both artifacts and restore the previous CSV if the chart cannot be installed."""
+    import matplotlib.pyplot as plt
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    staging = output_dir / ".icu-forecast-export"
+    try:
+        staging.mkdir()
+    except FileExistsError as exc:
+        raise FileExistsError(f"An active or interrupted export already owns {staging}") from exc
+
+    keep_recovery = False
+    try:
+        csv, chart = _output_paths(input_csv, output_dir)
+        staged_csv, staged_chart = staging / csv.name, staging / chart.name
+        predictions.to_csv(staged_csv, index=False)
+        figure = plot_contributions(importance)
+        try:
+            figure.savefig(staged_chart, dpi=150)
+        finally:
+            plt.close(figure)
+        previous_csv = staging / "previous.csv"
+        if csv.exists():
+            copy2(csv, previous_csv)
+        staged_csv.replace(csv)
+        try:
+            staged_chart.replace(chart)
+        except BaseException:
+            try:
+                if previous_csv.exists():
+                    previous_csv.replace(csv)
+                else:
+                    csv.unlink()
+            except OSError as recovery_error:
+                keep_recovery = True
+                raise OSError(f"Could not restore {csv}. Recovery files remain in {staging}") from recovery_error
+            raise
+    finally:
+        if not keep_recovery:
+            rmtree(staging)
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--csv", type=Path, default=CSV_PATH)
     parser.add_argument("--output-dir", type=Path, default=Path("."))
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    try:
+        _output_paths(args.csv, args.output_dir)
+    except ValueError as exc:
+        parser.error(str(exc))
     periods = split_periods(build_panel(read_snapshot(args.csv)))
     model = fit_forecast(periods["Train"], periods["Validation"])
     test = periods["Test"]
     proba = model.probabilities(test)
     print(benchmark(periods["Train"], test, proba).round(4).to_string())
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    prediction_frame(test, proba).to_csv(args.output_dir / "icu_breach_probabilities.csv", index=False)
-    plot_contributions(feature_contributions(model, test)).savefig(args.output_dir / "SHAP_features.png", dpi=150)
+    write_results(args.csv, args.output_dir, prediction_frame(test, proba), feature_contributions(model, test))
 
 
 if __name__ == "__main__":

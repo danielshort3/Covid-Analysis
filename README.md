@@ -16,7 +16,11 @@ uv run --no-sync python icu_forecast.py --output-dir results
 uv run --no-sync python -m unittest discover -s tests -v
 ```
 
-The command prints three methods on the same test origins and writes `icu_breach_probabilities.csv` plus `SHAP_features.png` to the selected directory. The displayed notebook uses the same functions. To rerun it from a clean kernel, run the following commands from the repository root.
+The command prints three methods on the same test origins and writes `icu_breach_probabilities.csv` plus `SHAP_features.png` to the selected directory. The input and both outputs need distinct paths and file identities. Existing outputs must be regular files. The CLI stages both artifacts before replacing either one and restores the previous CSV if the chart replacement fails.
+
+One CLI export at a time can publish to a directory. A process interruption or an unsuccessful rollback can leave a `.icu-forecast-export` directory. Once the writer has stopped, inspect that directory for `previous.csv` and the staged artifacts before moving it aside and retrying. Each file replacement is atomic. Readers can observe the interval between the two replacements.
+
+The displayed notebook uses the same forecasting functions. To rerun it from a clean kernel, run the following commands from the repository root.
 
 ```sh
 uv sync --locked --extra notebook --python 3.12
